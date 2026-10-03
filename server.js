@@ -535,4 +535,5 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'not_found', message
 /* ───────── Static frontend ───────── */
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'], maxAge: '1h' }));
 
-app.listen(PORT, () => console.log(`SteamTrack running on http://localhost:${PORT}`));
+if (!process.env.VERCEL) app.listen(PORT, () => console.log(`SteamTrack running on http://localhost:${PORT}`));
+export default app; // used by Vercel serverless (api/index.js)

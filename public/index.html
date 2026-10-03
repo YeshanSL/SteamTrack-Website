@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="css/animations.css">
   <link rel="stylesheet" href="css/gaming.css">
   <link rel="stylesheet" href="css/mobile.css">
+  <link rel="stylesheet" href="css/redesign.css">
 </head>
 <body>
 
@@ -172,5 +173,9 @@
 <div id="toasts" class="toasts" aria-live="polite"></div>
 
 <script type="module" src="js/main.js"></script>
+<script>
+  /* Safety net: if the app script fails to load or crashes, never leave the user on the intro screen */
+  setTimeout(function () { var l = document.getElementById('loader'); if (l) l.remove(); }, 9000);
+</script>
 </body>
 </html>

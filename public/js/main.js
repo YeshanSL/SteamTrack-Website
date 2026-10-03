@@ -528,11 +528,13 @@ function setupReveal() {
 }
 
 async function init() {
-  startBackground();
-  setupReveal();
-  bindGlobal();
-  renderChips();
-  await runLoader();
+  const safe = (f) => { try { f(); } catch (e) { console.error('[SteamTrack init]', e); } };
+  // Start the intro first so a failure in anything else can never freeze it at 0%
+  const intro = runLoader().catch((e) => console.error('[loader]', e));
+  safe(startBackground); safe(setupReveal); safe(bindGlobal); safe(renderChips);
+  // Watchdog: never wait longer than 6s for the intro
+  await Promise.race([intro, new Promise((r) => setTimeout(r, 6000))]);
+  document.getElementById('loader')?.remove();
   routeFromUrl();
   setInterval(() => { if (!$('#view-home').hidden && !document.hidden) loadHome(true); }, 120000);
 }
