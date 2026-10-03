@@ -51,6 +51,8 @@ async function loadHome(force) {
     const hn = $('#heroNum'); if (hn) countUp(hn, d.summary.players.total);
     $('#catGrid').innerHTML = ui.categoriesHTML(d.categories);
     $('#trendGrid').innerHTML = ui.trendCards(d.trending);
+    const tk = $('#tickerIn');
+    if (tk && d.trending?.length) { const h = d.trending.map((g) => `<span>${esc(g.name)} <b>${fmt(g.players)}</b> PLAYING</span>`).join(''); tk.innerHTML = h + h; }
     if (!S.best) api.leaderboard('level').then((b) => {
       S.best = b.players[0] || null;
       const c = $('#bestCard');
