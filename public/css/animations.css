@@ -1,0 +1,73 @@
+/* ───────── SteamTrack: animations, loader, reveal ───────── */
+@keyframes shine { to { background-position: -60% 0; } }
+@keyframes glitch {
+  0%   { transform: translate(0); text-shadow: none; }
+  25%  { transform: translate(-2px, 1px); }
+  50%  { transform: translate(2px, -1px); }
+  75%  { transform: translate(-1px, -1px); }
+  100% { transform: translate(0); }
+}
+@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(1.6); } }
+@keyframes grow { to { width: var(--w); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes dash { from { stroke-dasharray: 0 100; } }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes toastIn { from { opacity: 0; transform: translateY(12px) scale(.96); } }
+@keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+@keyframes float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -6px; } }
+@keyframes tabIn { from { opacity: 0; transform: translateY(10px); } }
+@keyframes ringPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--ring, transparent); } 50% { box-shadow: 0 0 0 6px transparent; } }
+
+/* Scroll reveal (IntersectionObserver adds .in) */
+.reveal { opacity: 0; transform: translateY(16px); transition: opacity .6s ease, transform .6s cubic-bezier(.2, .8, .2, 1); }
+.reveal.in { opacity: 1; transform: none; }
+.panel:not([hidden]) { animation: tabIn .45s cubic-bezier(.2, .8, .2, 1); }
+
+/* ───────── Loading screen ───────── */
+#loader {
+  position: fixed; inset: 0; z-index: 1000;
+  background: radial-gradient(circle at 50% 45%, #0b1230 0%, #04060d 70%);
+  display: grid; place-items: center;
+  overflow: hidden;
+  transition: opacity .8s ease, transform .9s cubic-bezier(.7, 0, .2, 1), filter .8s ease;
+}
+#loader.exit { opacity: 0; transform: scale(1.18); filter: blur(6px); pointer-events: none; }
+#loaderCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.scanlines {
+  position: absolute; inset: 0; pointer-events: none; opacity: .35;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 3px);
+  animation: scan 8s linear infinite;
+}
+@keyframes scan { to { background-position: 0 60px; } }
+.vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, .75) 100%); }
+.loader-core { position: relative; width: min(680px, 90vw); text-align: center; }
+.loader-tag { font-family: var(--font-display); font-size: .75rem; letter-spacing: .4em; color: var(--c1); opacity: .8; margin-bottom: 18px; }
+#loaderLogo { letter-spacing: .1em; }
+#loaderLogo .ch { display: inline-block; min-width: .72em; text-align: center; }
+#loaderLogo .ch:not(.locked) { opacity: .75; }
+.load-bar {
+  margin: 34px auto 12px; height: 8px; border-radius: 99px;
+  background: rgba(255, 255, 255, .08); overflow: hidden;
+  border: 1px solid rgba(var(--c1-rgb), .35);
+  box-shadow: 0 0 24px rgba(var(--c1-rgb), .18) inset;
+}
+.load-fill {
+  height: 100%; width: 0; border-radius: inherit;
+  background: linear-gradient(90deg, var(--c1), var(--c2), var(--c3));
+  box-shadow: 0 0 18px var(--c1), 0 0 36px rgba(var(--c1-rgb), .5);
+}
+.loader-meta { display: flex; justify-content: space-between; font-family: var(--font-display); font-size: .78rem; letter-spacing: .15em; color: var(--muted); }
+#loaderPct { color: var(--c1); }
+.skip {
+  position: absolute; right: 24px; bottom: 24px;
+  background: rgba(255, 255, 255, .06); border: 1px solid var(--border);
+  color: var(--muted); padding: 8px 16px; border-radius: 99px;
+  font-family: var(--font-display); font-size: .7rem; letter-spacing: .2em; text-transform: uppercase;
+  transition: .2s;
+}
+.skip:hover { color: var(--text); border-color: var(--c1); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  .reveal { opacity: 1; transform: none; }
+}

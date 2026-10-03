@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-accent="cyan">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SteamTrack | Steam Stats, Leaderboards &amp; Friend Rankings</title>
+  <meta name="description" content="Search any Steam player to see their stats, playtime, achievements, friend leaderboard and who is online.">
+  <meta name="theme-color" content="#04060d">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+
+<!-- ═════════ CINEMATIC LOADING SCREEN ═════════ -->
+<div id="loader" role="status" aria-live="polite" aria-label="Loading SteamTrack">
+  <canvas id="loaderCanvas" aria-hidden="true"></canvas>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="loader-core">
+    <div class="loader-tag">// INITIALIZING</div>
+    <h1 class="logo logo-xl" id="loaderLogo" data-text="STEAMTRACK">STEAMTRACK</h1>
+    <div class="load-bar" aria-hidden="true"><div class="load-fill" id="barFill"></div></div>
+    <div class="loader-meta"><span id="loaderMsg">Connecting to Steam...</span><span id="loaderPct">0%</span></div>
+  </div>
+  <button id="skipLoader" class="skip" type="button">Skip &rsaquo;</button>
+</div>
+
+<canvas id="bg" aria-hidden="true"></canvas>
+
+<!-- ═════════ NAV ═════════ -->
+<header class="nav">
+  <div class="container nav-inner">
+    <a href="./" class="logo logo-sm" data-nav="home" data-text="STEAMTRACK" aria-label="SteamTrack home">STEAMTRACK</a>
+    <nav class="nav-links" aria-label="Main">
+      <button class="nav-btn active" data-nav="home" type="button">Home</button>
+      <button class="nav-btn" data-nav="compare" type="button">Compare</button>
+      <button class="nav-btn" id="navFav" type="button">&#9733; Tracked</button>
+    </nav>
+    <div class="nav-tools">
+      <div class="accents" role="group" aria-label="Accent colour">
+        <button class="accent-dot" data-accent="cyan" style="--a:#00e5ff" aria-label="Cyan accent" type="button"></button>
+        <button class="accent-dot" data-accent="green" style="--a:#39ff88" aria-label="Green accent" type="button"></button>
+        <button class="accent-dot" data-accent="orange" style="--a:#ffa21f" aria-label="Orange accent" type="button"></button>
+        <button class="accent-dot" data-accent="pink" style="--a:#ff4fd8" aria-label="Pink accent" type="button"></button>
+      </div>
+      <button class="icon-btn" id="themeBtn" type="button" aria-label="Toggle light and dark theme">&#9680;</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- ═════════ HOME ═════════ -->
+  <section id="view-home">
+    <div class="hero">
+      <div class="eyebrow">STEAM STATS &middot; LEADERBOARDS &middot; LIVE</div>
+      <h2 class="hero-title">Track any <span class="grad">Steam player</span>.<br>Rank your <span class="grad">friends</span>.</h2>
+      <p class="hero-sub">Search a username to see playtime, achievements, who is online, and where you stand on the friend leaderboard.</p>
+
+      <form id="heroForm" class="search" autocomplete="off" novalidate>
+        <span class="search-ico" aria-hidden="true">&#9906;</span>
+        <input id="heroInput" type="text" inputmode="url" placeholder="Steam username, SteamID64 or profile URL" aria-label="Steam username, SteamID64 or profile URL" spellcheck="false">
+        <button class="btn primary" type="submit">Search</button>
+      </form>
+      <div id="detectHint" class="hint" aria-live="polite"></div>
+      <div id="heroError" class="form-error" role="alert" hidden></div>
+
+      <div class="chip-row">
+        <span class="muted small">Try an example:</span>
+        <button class="chip" data-example="gabelogannewell" type="button">gabelogannewell</button>
+        <button class="chip" data-example="76561197960287930" type="button">76561197960287930</button>
+      </div>
+      <div class="chip-row" id="recentWrap" hidden><span class="muted small">Recent:</span><span id="recentChips" class="chips"></span></div>
+      <div class="chip-row" id="favWrap" hidden><span class="muted small">Tracked:</span><span id="favChips" class="chips"></span></div>
+      <p class="muted small tip">Tip: use the custom URL name (steamcommunity.com/id/<b>NAME</b>), not the display name.</p>
+    </div>
+
+    <div id="liveStrip" class="strip"></div>
+
+    <div class="section-head">
+      <h3>Trending now</h3>
+      <span class="live-pill"><i></i> LIVE</span>
+    </div>
+    <div id="trendGrid" class="trend-grid"></div>
+  </section>
+
+  <!-- ═════════ PROFILE ═════════ -->
+  <section id="view-profile" hidden>
+    <form id="miniForm" class="search mini" autocomplete="off" novalidate>
+      <span class="search-ico" aria-hidden="true">&#9906;</span>
+      <input id="miniInput" type="text" placeholder="Search another player" aria-label="Search another player" spellcheck="false">
+      <button class="btn sm primary" type="submit">Go</button>
+    </form>
+
+    <div id="profileHead"></div>
+
+    <div class="tabs" id="profileTabs" role="tablist" aria-label="Profile sections">
+      <button class="tab active" data-tab="overview" role="tab" type="button">Overview</button>
+      <button class="tab" data-tab="friends" role="tab" type="button">Friend Leaderboard</button>
+      <button class="tab" data-tab="online" role="tab" type="button">Online Friends</button>
+      <button class="tab" data-tab="achievements" role="tab" type="button">Achievements</button>
+      <button class="tab" data-tab="gameboard" role="tab" type="button">Game Board</button>
+    </div>
+
+    <div id="tab-overview" class="panel" role="tabpanel"></div>
+    <div id="tab-friends" class="panel" role="tabpanel" hidden></div>
+    <div id="tab-online" class="panel" role="tabpanel" hidden></div>
+    <div id="tab-achievements" class="panel" role="tabpanel" hidden></div>
+    <div id="tab-gameboard" class="panel" role="tabpanel" hidden></div>
+  </section>
+
+  <!-- ═════════ COMPARE ═════════ -->
+  <section id="view-compare" hidden>
+    <div class="section-head"><h3>Head to head</h3></div>
+    <form id="cmpForm" class="cmp-form card" autocomplete="off" novalidate>
+      <label>Player 1<input id="cmpA" type="text" placeholder="Username, SteamID64 or URL" spellcheck="false"></label>
+      <span class="vs">VS</span>
+      <label>Player 2<input id="cmpB" type="text" placeholder="Username, SteamID64 or URL" spellcheck="false"></label>
+      <button class="btn primary" type="submit">Compare</button>
+    </form>
+    <div id="cmpError" class="form-error" role="alert" hidden></div>
+    <div id="cmpResult"></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="container foot-inner">
+    <span class="logo logo-sm" data-text="STEAMTRACK">STEAMTRACK</span>
+    <p class="muted small">Not affiliated with or endorsed by Valve Corporation. Steam and the Steam logo are trademarks of Valve. Data comes from the public Steam Web API and only appears for public profiles.</p>
+  </div>
+</footer>
+
+<!-- ═════════ MODAL / TOASTS ═════════ -->
+<div id="modal" class="modal" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <button id="modalClose" class="icon-btn modal-x" type="button" aria-label="Close">&times;</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
