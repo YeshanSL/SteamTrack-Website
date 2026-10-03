@@ -36,6 +36,7 @@
 </div>
 
 <canvas id="bg" aria-hidden="true"></canvas>
+<div class="floaters" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 
 <!-- ═════════ NAV ═════════ -->
 <div class="ticker" aria-hidden="true"><div class="ticker-in" id="tickerIn"><span>LIVE FROM STEAM</span><span>LOADING TRENDING GAMES</span><span>STEAMTRACK BROADCAST</span></div></div>
@@ -77,8 +78,12 @@
         </div>
       </div>
       <div class="hero-art" aria-hidden="true">
-        <div class="slab"></div><div class="slab two"></div>
-        <div class="big"><b id="heroNum">–</b><span>PLAYING NOW</span></div>
+        <div class="scene" id="scene">
+          <div class="halo"></div><div class="ring r1"></div><div class="ring r2"></div>
+          <div class="cube"><i class="f f1"></i><i class="f f2"></i><i class="f f3"></i><i class="f f4"></i><i class="f f5"></i><i class="f f6"></i><b class="core"></b></div>
+          <span class="shard s1"></span><span class="shard s2"></span><span class="shard s3"></span><span class="shard s4"></span>
+          <div class="big"><b id="heroNum">–</b><span>PLAYING NOW</span></div>
+        </div>
       </div>
     </div>
 

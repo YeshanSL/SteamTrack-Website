@@ -4,6 +4,7 @@ import { $, $$, esc, fmt, hrs, debounce, store, toast, countUp, parseInput, down
 import * as ui from './ui.js';
 import { runLoader } from './loader.js';
 import { startBackground } from './bg.js';
+import { startFx } from './fx.js';
 
 let token = 0;
 const S = {};
@@ -538,7 +539,7 @@ async function init() {
   const safe = (f) => { try { f(); } catch (e) { console.error('[SteamTrack init]', e); } };
   // Start the intro first so a failure in anything else can never freeze it at 0%
   const intro = runLoader().catch((e) => console.error('[loader]', e));
-  safe(startBackground); safe(setupReveal); safe(bindGlobal); safe(renderChips);
+  safe(startBackground); safe(startFx); safe(setupReveal); safe(bindGlobal); safe(renderChips);
   // Watchdog: never wait longer than 6s for the intro
   await Promise.race([intro, new Promise((r) => setTimeout(r, 6000))]);
   document.getElementById('loader')?.remove();
