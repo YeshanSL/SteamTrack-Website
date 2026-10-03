@@ -45,35 +45,36 @@ h1, h2, h3, h4, .hero-title, .view-title, .tile-val, .figure, .lb-val, .pod-val 
 
 /* hero */
 .hero { padding: 72px 0 40px; }
-.hero-title { font-weight: 900; font-size: clamp(3.4rem, 9.5vw, 8rem); line-height: .85; text-transform: uppercase; letter-spacing: -.01em; }
+.hero-title { font-weight: 900; font-size: clamp(2.8rem, 6.6vw, 6rem); line-height: .9; text-transform: uppercase; letter-spacing: -.01em; }
 .hero-title .red { background: linear-gradient(100deg, #ff2a2a 20%, #fff 45%, #ff2a2a 70%) 0 0 / 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: sheen 4s linear infinite; filter: drop-shadow(0 0 26px rgba(var(--c1-rgb), .55)); }
 .hero-title .outline { -webkit-text-stroke: 2px #fff; }
 @keyframes sheen { to { background-position: -250% 0; } }
 .hero-sub { border: 0; padding: 0; }
 
-/* 3D hero scene */
-.hero-art { min-height: 460px; display: grid; place-items: center; perspective: 1000px; }
-.scene { position: relative; width: 340px; height: 340px; transform-style: preserve-3d; transform: rotateX(var(--sy, 0deg)) rotateY(var(--sx, 0deg)); transition: transform .25s ease-out; }
-.halo { position: absolute; inset: -20%; border-radius: 50%; background: radial-gradient(circle, rgba(var(--c1-rgb), .55), transparent 65%); filter: blur(30px); animation: breathe 4s ease-in-out infinite; }
-.cube { position: absolute; left: 50%; top: 50%; width: 170px; height: 170px; margin: -85px 0 0 -85px; transform-style: preserve-3d; animation: spin3 16s linear infinite; }
-.cube .f { position: absolute; inset: 0; border: 2px solid var(--c1); background: linear-gradient(135deg, rgba(var(--c1-rgb), .22), rgba(0,0,0,.1)); box-shadow: inset 0 0 40px rgba(var(--c1-rgb), .5), 0 0 24px rgba(var(--c1-rgb), .4); }
-.f1 { transform: translateZ(85px); } .f2 { transform: rotateY(90deg) translateZ(85px); } .f3 { transform: rotateY(180deg) translateZ(85px); }
-.f4 { transform: rotateY(-90deg) translateZ(85px); } .f5 { transform: rotateX(90deg) translateZ(85px); } .f6 { transform: rotateX(-90deg) translateZ(85px); }
-.cube .core { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px; background: #fff; box-shadow: 0 0 60px 18px rgba(var(--c1-rgb), .85); animation: breathe 2.4s ease-in-out infinite; }
-.ring { position: absolute; inset: 0; border-radius: 50%; border: 2px dashed rgba(255,255,255,.35); transform: rotateX(72deg) translateZ(-10px); animation: ringspin 12s linear infinite; }
-.ring.r2 { inset: -14%; border: 2px solid rgba(var(--c1-rgb), .7); animation-duration: 20s; animation-direction: reverse; }
-.shard { position: absolute; background: linear-gradient(135deg, #fff, var(--c1)); clip-path: polygon(50% 0, 100% 100%, 0 100%); animation: floatz 6s ease-in-out infinite; }
-.s1 { width: 36px; height: 52px; left: -6%; top: 14%; transform: translateZ(90px); }
-.s2 { width: 26px; height: 38px; right: -4%; top: 6%; transform: translateZ(140px); animation-delay: -2s; }
-.s3 { width: 44px; height: 62px; right: 2%; bottom: 8%; transform: translateZ(60px); animation-delay: -4s; }
-.s4 { width: 22px; height: 32px; left: 8%; bottom: 4%; transform: translateZ(120px); animation-delay: -1s; background: #fff; }
-.hero-art .big { position: absolute; left: 50%; bottom: -34px; transform: translateX(-50%) translateZ(150px); text-align: center; padding: 12px 30px; border-radius: 18px; background: rgba(8,8,8,.78); backdrop-filter: blur(12px); border: 1px solid rgba(var(--c1-rgb), .6); box-shadow: 0 0 40px rgba(var(--c1-rgb), .35); }
-.hero-art .big b { display: block; font: 900 clamp(2.4rem, 5vw, 3.8rem)/1 var(--display); }
-.hero-art .big span { font: 800 .72rem var(--display); letter-spacing: .4em; color: var(--c1); }
-@keyframes spin3 { from { transform: rotateX(-22deg) rotateY(0); } to { transform: rotateX(-22deg) rotateY(360deg); } }
-@keyframes ringspin { to { transform: rotateX(72deg) rotateZ(360deg); } }
-@keyframes floatz { 0%, 100% { translate: 0 0; } 50% { translate: 0 -22px; } }
-@keyframes breathe { 0%, 100% { opacity: .75; scale: 1; } 50% { opacity: 1; scale: 1.12; } }
+/* hero: live reactor ring */
+.hero { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+.hero-art { min-height: 0; display: grid; place-items: center; perspective: 1000px; }
+.reactor { position: relative; width: min(440px, 100%); aspect-ratio: 1; transform: rotateX(var(--sy, 0deg)) rotateY(var(--sx, 0deg)); transition: transform .25s ease-out; transform-style: preserve-3d; animation: bob 7s ease-in-out infinite; }
+.reactor::before { content: ""; position: absolute; inset: 8%; border-radius: 50%; background: radial-gradient(circle, rgba(var(--c1-rgb), .45), transparent 68%); filter: blur(28px); animation: breathe 4s ease-in-out infinite; }
+.rx-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.rx-svg circle { fill: none; transform-origin: 200px 200px; }
+.rx-track { stroke: rgba(255,255,255,.07); stroke-width: 10; }
+.rx-arc { stroke: var(--c1); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 640 430; filter: drop-shadow(0 0 10px rgba(var(--c1-rgb), .9)); animation: rxspin 6s linear infinite; }
+.rx-ticks line { stroke: rgba(255,255,255,.35); stroke-width: 2; }
+.rx-dash { stroke: rgba(255,255,255,.4); stroke-width: 2; stroke-dasharray: 3 12; animation: rxspin 40s linear infinite reverse; }
+.rx-inner { stroke: rgba(var(--c1-rgb), .55); stroke-width: 1.5; }
+.rx-core { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; transform: translateZ(40px); }
+.rx-lbl { font: 800 .7rem var(--display); letter-spacing: .38em; color: var(--c1); }
+.rx-core b { font: 900 clamp(2rem, 4.2vw, 3.1rem)/1.05 var(--display); color: #fff; text-shadow: 0 0 24px rgba(var(--c1-rgb), .7); }
+.rx-sub { font: 800 .75rem var(--display); letter-spacing: .4em; color: #bdbdbd; }
+.rx-chip { position: absolute; padding: 10px 16px; border-radius: 14px; background: rgba(10,10,10,.82); backdrop-filter: blur(12px); border: 1px solid rgba(var(--c1-rgb), .5); box-shadow: 0 0 28px rgba(var(--c1-rgb), .25); transform: translateZ(90px); animation: floatz 6s ease-in-out infinite; max-width: 62%; }
+.rx-chip small { display: block; font: 800 .62rem var(--display); letter-spacing: .26em; color: var(--c1); }
+.rx-chip b { display: block; font: 800 1.05rem var(--display); letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rx-chip.c1 { top: 2%; right: -4%; } .rx-chip.c2 { bottom: 4%; left: -6%; animation-delay: -3s; }
+@keyframes rxspin { to { transform: rotate(360deg); } }
+@keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -12px; } }
+@keyframes floatz { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
+@keyframes breathe { 0%, 100% { opacity: .7; } 50% { opacity: 1; } }
 
 /* section headings */
 .section-head { margin: 60px 0 22px; border: 0; padding: 0; }
@@ -121,5 +122,5 @@ h1, h2, h3, h4, .hero-title, .view-title, .tile-val, .figure, .lb-val, .pod-val 
 .pod-step { border-radius: 18px 18px 0 0; clip-path: none; border-top: 3px solid var(--c1); box-shadow: 0 -10px 40px rgba(var(--c1-rgb), .25); }
 .footer { border-top: 1px solid var(--edge); background: rgba(0,0,0,.6); margin-top: 60px; }
 
-@media (max-width: 860px) { .scene { width: 240px; height: 240px; } .cube { width: 120px; height: 120px; margin: -60px 0 0 -60px; } .f1 { transform: translateZ(60px); } .f2 { transform: rotateY(90deg) translateZ(60px); } .f3 { transform: rotateY(180deg) translateZ(60px); } .f4 { transform: rotateY(-90deg) translateZ(60px); } .f5 { transform: rotateX(90deg) translateZ(60px); } .f6 { transform: rotateX(-90deg) translateZ(60px); } .hero-art { min-height: 340px; } .nav-inner { border-radius: 24px; } }
-@media (prefers-reduced-motion: reduce) { .cube, .ring, .shard, .halo, .floaters i, .hero-title .red, .avatar-wrap { animation: none; } }
+@media (max-width: 860px) { .hero { grid-template-columns: 1fr; } .reactor { width: min(320px, 90%); margin-top: 20px; } .rx-chip.c1 { right: 0; } .rx-chip.c2 { left: 0; } .nav-inner { border-radius: 24px; } }
+@media (prefers-reduced-motion: reduce) { .reactor, .rx-arc, .rx-dash, .rx-chip, .floaters i, .hero-title .red, .avatar-wrap { animation: none; } }

@@ -50,6 +50,8 @@ async function loadHome(force) {
     $('#dash').innerHTML = ui.dashboardHTML(d, S.best || null);
     $$('#dash [data-count]').forEach((n) => countUp(n, +n.dataset.count));
     const hn = $('#heroNum'); if (hn) countUp(hn, d.summary.players.total);
+    const ht = $('#heroTop'); if (ht && d.summary.players.top) ht.textContent = d.summary.players.top.name;
+    const hg = $('#heroGames'); if (hg) hg.textContent = d.summary.players.games;
     $('#catGrid').innerHTML = ui.categoriesHTML(d.categories);
     $('#trendGrid').innerHTML = ui.trendCards(d.trending);
     const tk = $('#tickerIn');
@@ -535,11 +537,30 @@ function setupReveal() {
   scan();
 }
 
+function buildHero() {
+  const art = document.querySelector('.hero-art');
+  if (!art) return;
+  let ticks = '';
+  for (let i = 0; i < 60; i++) ticks += `<line x1="200" y1="14" x2="200" y2="${i % 5 ? 22 : 34}" transform="rotate(${i * 6} 200 200)"/>`;
+  art.innerHTML = `<div class="reactor" id="scene">
+    <svg viewBox="0 0 400 400" class="rx-svg">
+      <circle class="rx-track" cx="200" cy="200" r="168"/>
+      <circle class="rx-arc" cx="200" cy="200" r="168"/>
+      <g class="rx-ticks">${ticks}</g>
+      <circle class="rx-dash" cx="200" cy="200" r="138"/>
+      <circle class="rx-inner" cx="200" cy="200" r="112"/>
+    </svg>
+    <div class="rx-core"><span class="rx-lbl">LIVE PLAYERS</span><b id="heroNum">–</b><span class="rx-sub">PLAYING NOW</span></div>
+    <div class="rx-chip c1"><small>#1 GAME</small><b id="heroTop">–</b></div>
+    <div class="rx-chip c2"><small>GAMES TRACKED</small><b id="heroGames">–</b></div>
+  </div>`;
+}
+
 async function init() {
   const safe = (f) => { try { f(); } catch (e) { console.error('[SteamTrack init]', e); } };
   // Start the intro first so a failure in anything else can never freeze it at 0%
   const intro = runLoader().catch((e) => console.error('[loader]', e));
-  safe(startBackground); safe(startFx); safe(setupReveal); safe(bindGlobal); safe(renderChips);
+  safe(buildHero); safe(startBackground); safe(startFx); safe(setupReveal); safe(bindGlobal); safe(renderChips);
   // Watchdog: never wait longer than 6s for the intro
   await Promise.race([intro, new Promise((r) => setTimeout(r, 6000))]);
   document.getElementById('loader')?.remove();
