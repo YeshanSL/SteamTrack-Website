@@ -14,7 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const KEY = process.env.STEAM_API_KEY;
 const PORT = Number(process.env.PORT) || 3000;
 const MAX_FRIENDS = Number(process.env.MAX_FRIENDS) || 60;
-const RATE_LIMIT = Number(process.env.RATE_LIMIT_PER_MIN) || 120;
+const RATE_LIMIT = Number(process.env.RATE_LIMIT_PER_MIN) || 400;
 const API = 'https://api.steampowered.com';
 
 if (!KEY || KEY.startsWith('PASTE_')) {
@@ -71,8 +71,12 @@ class ApiError extends Error {
 
 async function steam(url) {
   let r;
-  try { r = await fetch(url, { signal: AbortSignal.timeout(12_000), headers: { Accept: 'application/json' } }); }
-  catch { throw new ApiError(502, 'network', 'Could not reach Steam. Try again in a moment.'); }
+  for (let i = 0; i < 2; i++) {
+    try { r = await fetch(url, { signal: AbortSignal.timeout(12_000), headers: { Accept: 'application/json' } }); }
+    catch { throw new ApiError(502, 'network', 'Could not reach Steam. Try again in a moment.'); }
+    if (r.status !== 429) break;
+    await new Promise((res) => setTimeout(res, 900));
+  }
   if (r.status === 429) throw new ApiError(429, 'rate_limited', 'Steam is rate limiting requests. Try again shortly.');
   if (r.status === 401 || r.status === 403) throw new ApiError(403, 'private', 'This data is private.');
   if (r.status === 400) throw new ApiError(404, 'no_data', 'No data available for this request.');
@@ -420,15 +424,46 @@ function boardRow(id) {
     };
   });
 }
+/* Global player pool: Steam has no global ranking API, so we read the public "top players" lists
+   (highest level / most games / most playtime) from profilerr.net and re-measure everyone live with Steam's official API. */
+const FALLBACK_TOP = '76561198842603734 76561198023414915 76561199080934614 76561197984432884 76561198254085126 76561198048165534 76561198023455525 76561198044426667 76561198092430664 76561198212206651 76561198294650349 76561198062673538 76561198203118756 76561197986603983 76561198306626714 76561198014898339 76561198067053149 76561198046160451 76561198108581917 76561198089412043 76561198071621154 76561198409565259 76561197976968076 76561197968423451 76561198912653263 76561198228094348 76561198039386132 76561198813424031 76561198264035001 76561198043066606'.split(' ');
+const GLOBAL_LISTS = ['top-by-level', 'top-by-games', 'top-by-playtime'];
+function globalIds() {
+  return cached('globalids', 6 * 3600_000, async () => {
+    const found = new Set();
+    await Promise.all(GLOBAL_LISTS.map(async (l) => {
+      try {
+        const r = await fetch(`https://profilerr.net/services/steam-id/${l}/`, { signal: AbortSignal.timeout(10_000), headers: { 'User-Agent': 'Mozilla/5.0 SteamTrack', Accept: 'text/html' } });
+        if (!r.ok) return;
+        for (const m of (await r.text()).matchAll(/persons\/(7656119\d{10})\/steam/g)) found.add(m[1]);
+      } catch { /* source unavailable: fallback list is used */ }
+    }));
+    FALLBACK_TOP.forEach((id) => found.add(id));
+    return [...found];
+  });
+}
 // /api/leaderboard?metric=level|games|minutes|recent
 app.get('/api/leaderboard', route(async (req) => {
   const metric = ['level', 'games', 'minutes', 'recent'].includes(req.query.metric) ? req.query.metric : 'level';
-  await bootstrapBoard();
-  return cached(`lbd:${metric}:${members.size}`, 5 * 60_000, async () => {
-    const rows = (await mapLimit([...members], 6, (id) => boardRow(id).catch(() => null))).filter(Boolean);
-    const ranked = rows.filter((r) => r[metric] != null).sort((a, b) => b[metric] - a[metric]).slice(0, 50)
+  const ids = [...new Set([...(await globalIds()), ...members])].slice(0, 260);
+  return cached(`lbd2:${metric}:${ids.length}`, 30 * 60_000, async () => {
+    const players = await summaries(ids);
+    const pub = players.filter((p) => p.visibility === 3);
+    const rows = await mapLimit(pub, 10, async (p) => {
+      const row = { steamid: p.steamid, name: p.name, avatar: p.avatar, country: p.country, state: p.state, game: p.game, level: null, games: null, minutes: null, recent: null };
+      try {
+        if (metric === 'level') row.level = await levelFor(p.steamid);
+        else {
+          const og = await ownedFor(p.steamid);
+          if (!og.private) { row.games = og.games.length; row.minutes = og.games.reduce((a, g) => a + g.playtime_forever, 0); row.recent = og.games.reduce((a, g) => a + g.playtime_2weeks, 0); }
+          row.level = await levelFor(p.steamid).catch(() => null);
+        }
+      } catch { /* leave null */ }
+      return row;
+    });
+    const ranked = rows.filter((r) => r[metric] != null).sort((a, b) => b[metric] - a[metric]).slice(0, 100)
       .map((r, i) => ({ ...r, rank: i + 1, value: r[metric] }));
-    return { metric, players: ranked, members: members.size, updated: Date.now() };
+    return { metric, players: ranked, members: ids.length, hidden: players.length - pub.length, updated: Date.now() };
   });
 }));
 

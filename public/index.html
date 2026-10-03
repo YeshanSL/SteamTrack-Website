@@ -129,12 +129,12 @@
   <!-- ═════════ GLOBAL LEADERBOARD ═════════ -->
   <section id="view-leaderboard" class="view" hidden>
     <h2 class="view-title">Global <span class="red">leaderboard</span></h2>
-    <p class="view-sub" id="gbIntro">The top players tracked by SteamTrack. Every public profile searched on this site joins the board.</p>
+    <p class="view-sub" id="gbIntro">The best public players on all of Steam, ranked live from Steam's official data. Nothing to add: the board fills itself.</p>
     <div class="toolbar">
       <label>Rank by <select id="gMetric" aria-label="Ranking metric">
         <option value="level">Steam level</option><option value="minutes">Total playtime</option>
         <option value="games">Games owned</option><option value="recent">Last 2 weeks</option></select></label>
-      <form id="addForm" class="push add-form" autocomplete="off" novalidate>
+      <form id="addForm" class="push add-form" hidden autocomplete="off" novalidate>
         <input id="addInput" type="text" placeholder="Add a player to the board" aria-label="Add a player" spellcheck="false">
         <button class="btn sm primary" type="submit">Add</button>
       </form>

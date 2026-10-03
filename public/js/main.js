@@ -178,16 +178,21 @@ function updateVsFriends(err) {
 /* ───────── achievements ───────── */
 function loadAchievements() {
   if (S.achPromise) return S.achPromise;
-  const top = [...S.games].filter((g) => g.playtime_forever > 0).sort((a, b) => b.playtime_forever - a.playtime_forever).slice(0, 12);
+  // Try up to 30 of the most played games and stop once 12 have achievement data (many games have none)
+  const top = [...S.games].filter((g) => g.playtime_forever > 0).sort((a, b) => b.playtime_forever - a.playtime_forever).slice(0, 30);
   S.achPromise = (async () => {
     const out = []; let i = 0;
     const worker = async () => {
-      while (i < top.length) {
+      while (i < top.length && out.length < 12) {
         const g = top[i++];
-        try { const a = await api.achievements(S.id, g.appid); if (a.available) out.push({ game: g, ...a }); } catch { /* skip game */ }
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try { const a = await api.achievements(S.id, g.appid); if (a.available) out.push({ game: g, ...a }); break; }
+          catch (e) { if (e.code === 'private' || attempt) break; await new Promise((r) => setTimeout(r, 700)); }
+        }
       }
     };
     await Promise.all([worker(), worker(), worker()]);
+    out.sort((x, y) => y.game.playtime_forever - x.game.playtime_forever);
     S.ach = out;
     return out;
   })();

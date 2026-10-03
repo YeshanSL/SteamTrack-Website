@@ -345,9 +345,9 @@ export const trendCards = (games) => games.map((g, i) => `<button class="tcard r
 
 /* ───────── global leaderboard ───────── */
 export function globalBoard(d, m) {
-  if (!d.players.length) return emptyBox('Nobody on the board yet', 'Search a public profile or add a player above to start the ranking.');
+  if (!d.players.length) return emptyBox('Board unavailable', 'Could not load the global player list right now. Try again in a minute.');
   const max = d.players[0].value || 1;
   const rows = d.players.map((p) => lbRow({ ...p, rank: p.rank }, m, max)).join('');
   return `<div id="gPodium">${podium(d.players.slice(0, 3).map((p) => ({ ...p })), m)}</div><div class="lb">${rows}</div>
-    <p class="muted small" style="margin-top:12px">${d.members} players tracked &middot; top ${d.players.length} shown &middot; updated ${new Date(d.updated).toLocaleTimeString()}</p>`;
+    <p class="muted small" style="margin-top:12px">${d.members} top Steam accounts checked &middot; ${d.hidden || 0} private profiles hidden &middot; top ${d.players.length} shown &middot; updated ${new Date(d.updated).toLocaleTimeString()} &middot; player list from <a href="https://profilerr.net/services/steam-id/top-by-level/" target="_blank" rel="noopener">Profilerr</a>, stats live from Steam</p>`;
 }
