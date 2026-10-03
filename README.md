@@ -11,7 +11,7 @@ steamtrack/
 ├── .env.example         copy to .env and add your key
 └── public/              the website (static files)
     ├── index.html
-    ├── css/  base.css · components.css · animations.css
+    ├── css/  base.css · components.css · animations.css · gaming.css
     └── js/   main.js · api.js · ui.js · charts.js · loader.js · bg.js · utils.js
 ```
 
@@ -39,18 +39,26 @@ The key only ever lives in the server's environment. The browser never sees it.
 - Steam does not offer a search by display name, so display names are not supported.
 - Share links look like `?user=NAME`.
 
-## Features
+## Tabs
 
-- Cinematic loading screen (plays once per session, with Skip) and animated background
-- Profile summary: status ring, level, country, account age, currently playing game
-- Stat tiles with animated counters, recent games, top 10 most played, played vs unplayed donut, level and XP bar, wishlist (when available)
-- Friend leaderboard: rank by playtime, games owned, Steam level or last 2 weeks; podium, filter, animated re-ranking, CSV export
-- "Your position": rank, percentile, and the gap to the next rank
-- Online friends panel that refreshes every 60 seconds
-- Achievements: completion by game, rarest unlocked, global rarity
-- Game board: friends ranked in a chosen game, live player count, and official leaderboards for games that expose them
-- Compare two players side by side with winners highlighted and shared games
-- Game detail modal, share card (PNG), copy link, tracked players, light/dark theme, accent colours
+- **Home**: boot-sequence loader, live summary dashboard (best golden game, active players, sale season, best player on Steam), top 3 games in each of 8 categories, trending now.
+- **Stats**: search any player (custom URL name, SteamID64 or URL). Overview, friend leaderboard, online friends, achievements, game board, share card, track.
+- **Leaderboard**: global board ranked by Steam level, playtime, games owned or last 2 weeks. Add players from the page.
+- **Compare**: two players head to head.
+
+Dark mode only. Palette: black, white, red.
+
+## How the home dashboard is computed
+
+- **Top 3 per category** = 60% live player count + 40% position in Steam's top sellers list (store featured categories). Games come from the curated lists in `CATEGORIES` in `server.js`; edit them freely.
+- **Best golden game** = highest positive-review percentage (min 30,000 reviews) among the tracked games.
+- **Active players** = live players summed across the tracked games. Steam's API has no single "all of Steam" number.
+- **Sale season** = Steam's yearly sale calendar (dates are approximate, edit `SALES` in `server.js`) plus the live count of weekly deals.
+- **Best player on Steam** = #1 on the SteamTrack global board by level.
+
+## Global leaderboard
+
+Steam has no global ranking API, so SteamTrack builds its own. Members are `SEED_IDS` (default: Gabe Newell) plus their public friends, plus every public profile anyone searches or adds. The list is saved in `data/board.json` (capped by `MAX_BOARD`, default 150). The more profiles are searched, the closer it gets to a real "top players" list. Add well-known high-level SteamID64s to `SEED_IDS` in `.env` (comma separated) to speed that up.
 
 ## Privacy limits (Steam's rules)
 
@@ -79,7 +87,7 @@ Any host that runs Node works (Render, Railway, Fly.io, a VPS).
 
 ## API endpoints (proxy)
 
-`/api/resolve` · `/api/summary` · `/api/owned-games` · `/api/recent` · `/api/level` · `/api/badges` · `/api/friends` · `/api/friends-stats` · `/api/friends-game` · `/api/achievements` · `/api/player-count` · `/api/trending` · `/api/wishlist` · `/api/game-leaderboards`
+`/api/resolve` · `/api/summary` · `/api/owned-games` · `/api/recent` · `/api/level` · `/api/badges` · `/api/friends` · `/api/friends-stats` · `/api/friends-game` · `/api/achievements` · `/api/player-count` · `/api/trending` · `/api/home` · `/api/leaderboard` · `/api/wishlist` · `/api/game-leaderboards`
 
 ## Notes
 

@@ -7,6 +7,7 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -194,11 +195,13 @@ app.get('/api/resolve', route(async (req) => {
 // /api/summary?steamid=ID
 app.get('/api/summary', route(async (req) => {
   const id = needId(req);
-  return cached(`sm:${id}`, 60_000, async () => {
+  const out = await cached(`sm:${id}`, 60_000, async () => {
     const [p] = await summaries([id]);
     if (!p) throw new ApiError(404, 'not_found', 'No Steam user found with that ID.');
     return { player: p };
   });
+  if (out.player.visibility === 3) addMember(id); // every public profile searched joins the global board
+  return out;
 }));
 
 // /api/owned-games?steamid=ID
@@ -374,6 +377,158 @@ app.get('/api/game-leaderboards', route(async (req) => {
     } catch { return { available: false, boards: [], entries: [] }; }
   });
 }));
+
+
+/* ───────── Global board (Steam has no global ranking API, so SteamTrack builds its own) ─────────
+   Members = seed IDs + every public profile anyone searches. Persisted in data/board.json. */
+const DATA_DIR = path.join(__dirname, 'data');
+const BOARD_FILE = path.join(DATA_DIR, 'board.json');
+const MAX_BOARD = Number(process.env.MAX_BOARD) || 150;
+const SEEDS = (process.env.SEED_IDS || '76561197960287930').split(',').map((x) => x.trim()).filter(isId);
+const members = new Set(SEEDS);
+try { for (const id of JSON.parse(fs.readFileSync(BOARD_FILE, 'utf8'))) if (isId(id)) members.add(id); } catch { /* first run */ }
+let saveTimer;
+function addMember(id) {
+  if (members.has(id) || members.size >= MAX_BOARD) return;
+  members.add(id);
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { try { fs.mkdirSync(DATA_DIR, { recursive: true }); fs.writeFileSync(BOARD_FILE, JSON.stringify([...members])); } catch { /* read-only host: board stays in memory */ } }, 2000);
+}
+let bootstrapped = false;
+async function bootstrapBoard() {
+  if (bootstrapped || members.size >= 25) return;
+  bootstrapped = true;
+  for (const seed of SEEDS) {
+    try {
+      const { friends } = await friendSummaries(seed);
+      friends.filter((f) => f.visibility === 3).slice(0, 40).forEach((f) => addMember(f.steamid));
+    } catch { /* seed has a private friends list */ }
+  }
+}
+function boardRow(id) {
+  return cached(`br:${id}`, 15 * 60_000, async () => {
+    const [p] = await summaries([id]);
+    if (!p || p.visibility !== 3) return null;
+    const [og, lv] = await Promise.allSettled([ownedFor(id), levelFor(id)]);
+    const o = og.status === 'fulfilled' && !og.value.private ? og.value.games : null;
+    return {
+      steamid: id, name: p.name, avatar: p.avatar, country: p.country, state: p.state, game: p.game,
+      level: lv.status === 'fulfilled' ? lv.value : null,
+      games: o ? o.length : null,
+      minutes: o ? o.reduce((a, g) => a + g.playtime_forever, 0) : null,
+      recent: o ? o.reduce((a, g) => a + g.playtime_2weeks, 0) : null,
+    };
+  });
+}
+// /api/leaderboard?metric=level|games|minutes|recent
+app.get('/api/leaderboard', route(async (req) => {
+  const metric = ['level', 'games', 'minutes', 'recent'].includes(req.query.metric) ? req.query.metric : 'level';
+  await bootstrapBoard();
+  return cached(`lbd:${metric}:${members.size}`, 5 * 60_000, async () => {
+    const rows = (await mapLimit([...members], 6, (id) => boardRow(id).catch(() => null))).filter(Boolean);
+    const ranked = rows.filter((r) => r[metric] != null).sort((a, b) => b[metric] - a[metric]).slice(0, 50)
+      .map((r, i) => ({ ...r, rank: i + 1, value: r[metric] }));
+    return { metric, players: ranked, members: members.size, updated: Date.now() };
+  });
+}));
+
+/* ───────── Home dashboard ───────── */
+const CATEGORIES = [
+  ['Shooters', [[730, 'Counter-Strike 2'], [578080, 'PUBG: BATTLEGROUNDS'], [1172470, 'Apex Legends'], [359550, "Tom Clancy's Rainbow Six Siege"], [553850, 'HELLDIVERS 2'], [2767030, 'Marvel Rivals'], [2507950, 'Delta Force'], [1938090, 'Call of Duty']]],
+  ['RPG', [[1245620, 'ELDEN RING'], [1086940, "Baldur's Gate 3"], [1091500, 'Cyberpunk 2077'], [292030, 'The Witcher 3: Wild Hunt'], [2358720, 'Black Myth: Wukong'], [2694490, 'Path of Exile 2'], [238960, 'Path of Exile']]],
+  ['Strategy', [[289070, "Sid Meier's Civilization VI"], [1295660, "Sid Meier's Civilization VII"], [1158310, 'Crusader Kings III'], [394360, 'Hearts of Iron IV'], [1142710, 'Total War: WARHAMMER III']]],
+  ['Survival & Sandbox', [[252490, 'Rust'], [105600, 'Terraria'], [892970, 'Valheim'], [346110, 'ARK: Survival Evolved'], [108600, 'Project Zomboid'], [1623730, 'Palworld']]],
+  ['Online & MMO', [[570, 'Dota 2'], [1599340, 'Lost Ark'], [230410, 'Warframe'], [1085660, 'Destiny 2'], [440, 'Team Fortress 2']]],
+  ['Action & Adventure', [[271590, 'Grand Theft Auto V'], [1174180, 'Red Dead Redemption 2'], [2246340, 'Monster Hunter Wilds'], [1030300, 'Hollow Knight: Silksong'], [1145350, 'Hades II']]],
+  ['Racing & Sports', [[1551360, 'Forza Horizon 5'], [244210, 'Assetto Corsa'], [227300, 'Euro Truck Simulator 2'], [2252570, 'Football Manager 2024']]],
+  ['Co-op & Party', [[1966720, 'Lethal Company'], [3241660, 'R.E.P.O.'], [3527290, 'PEAK'], [548430, 'Deep Rock Galactic'], [945360, 'Among Us'], [1426210, 'It Takes Two']]],
+];
+const sellersRank = () => cached('sellers', 10 * 60_000, async () => {
+  const r = await fetch('https://store.steampowered.com/api/featuredcategories?cc=us&l=english', { signal: AbortSignal.timeout(10_000) });
+  if (!r.ok) throw new Error('store');
+  const j = await r.json();
+  const ids = (j.top_sellers?.items || []).map((i) => i.id);
+  const sp = j.specials?.items || [];
+  return {
+    ids,
+    specials: sp.length,
+    maxDiscount: sp.reduce((a, i) => Math.max(a, i.discount_percent || 0), 0),
+    specialNames: sp.slice(0, 3).map((i) => i.name),
+  };
+});
+const reviewsFor = (appid) => cached(`rv:${appid}`, 30 * 60_000, async () => {
+  const r = await fetch(`https://store.steampowered.com/appreviews/${appid}?json=1&language=all&purchase_type=all&num_per_page=0`, { signal: AbortSignal.timeout(8000) });
+  const q = (await r.json()).query_summary || {};
+  const total = (q.total_positive || 0) + (q.total_negative || 0);
+  return { total, pct: total ? Math.round((q.total_positive / total) * 100) : null, desc: q.review_score_desc || null };
+});
+// Steam's big sales follow a yearly calendar. Exact dates move a little each year, so these are approximate.
+const SALES = [
+  ['Steam Winter Sale', [12, 19], [1, 2]],
+  ['Steam Spring Sale', [3, 14], [3, 21]],
+  ['Steam Summer Sale', [6, 25], [7, 9]],
+  ['Steam Next Fest', [10, 13], [10, 20]],
+  ['Steam Autumn Sale', [11, 25], [12, 2]],
+];
+function saleStatus(now = new Date()) {
+  const y = now.getFullYear();
+  const spans = [];
+  for (const [name, [sm, sd], [em, ed]] of SALES) {
+    for (const yy of [y - 1, y, y + 1]) {
+      const start = new Date(yy, sm - 1, sd), end = new Date(sm > em ? yy + 1 : yy, em - 1, ed, 23, 59, 59);
+      spans.push({ name, start, end });
+    }
+  }
+  const active = spans.find((s) => now >= s.start && now <= s.end);
+  const next = spans.filter((s) => s.start > now).sort((a, b) => a.start - b.start)[0];
+  return {
+    active: active ? { name: active.name, ends: active.end.toISOString() } : null,
+    next: next ? { name: next.name, starts: next.start.toISOString(), days: Math.ceil((next.start - now) / 86_400_000) } : null,
+  };
+}
+app.get('/api/home', route(async () => cached('home', 60_000, async () => {
+  const flat = new Map();
+  CATEGORIES.forEach(([, g]) => g.forEach(([id, name]) => flat.set(id, name)));
+  const [counts, sellers] = await Promise.all([
+    mapLimit([...flat], 8, async ([appid, name]) => {
+      try { const d = await call('ISteamUserStats', 'GetNumberOfCurrentPlayers', 1, { appid }, { key: false }); return { appid, name, players: d.response?.player_count ?? 0 }; }
+      catch { return { appid, name, players: 0 }; }
+    }),
+    sellersRank().catch(() => null),
+  ]);
+  const players = new Map(counts.map((c) => [c.appid, c.players]));
+  const sellerIdx = new Map((sellers?.ids || []).map((id, i) => [id, i]));
+  const n = Math.max(sellers?.ids?.length || 1, 1);
+
+  const categories = CATEGORIES.map(([name, games]) => {
+    const rows = games.map(([appid, gname]) => ({ appid, name: gname, players: players.get(appid) || 0, sellerRank: sellerIdx.has(appid) ? sellerIdx.get(appid) + 1 : null }))
+      .filter((g) => g.players > 0);
+    const max = Math.max(...rows.map((g) => g.players), 1);
+    rows.forEach((g) => { g.score = (g.players / max) * 60 + (g.sellerRank ? (1 - (g.sellerRank - 1) / n) * 40 : 0); });
+    rows.sort((a, b) => b.score - a.score);
+    return { name, games: rows.slice(0, 3) };
+  }).filter((c) => c.games.length);
+
+  const trending = [...counts].sort((a, b) => b.players - a.players).slice(0, 8);
+  const total = counts.reduce((a, c) => a + c.players, 0);
+
+  // Golden game: best player rating among the tracked games (needs a large review base to count)
+  const rated = (await mapLimit([...flat].map(([appid, name]) => ({ appid, name })), 8, async (g) => {
+    try { return { ...g, ...(await reviewsFor(g.appid)), players: players.get(g.appid) || 0 }; } catch { return null; }
+  })).filter((g) => g && g.pct != null && g.total >= 30_000)
+    .sort((a, b) => b.pct - a.pct || b.total - a.total);
+
+  return {
+    updated: Date.now(),
+    summary: {
+      golden: rated[0] || null,
+      players: { total, top: trending[0] || null, games: counts.length },
+      sale: { ...saleStatus(), specials: sellers?.specials ?? null, maxDiscount: sellers?.maxDiscount ?? null, specialNames: sellers?.specialNames || [] },
+    },
+    categories,
+    trending,
+  };
+})));
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'not_found', message: 'Unknown endpoint.' }));
 

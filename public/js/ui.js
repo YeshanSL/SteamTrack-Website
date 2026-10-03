@@ -33,7 +33,7 @@ export function headSkeleton() {
   return `<div class="card head"><div class="skel circle" style="width:104px;height:104px"></div>
     <div class="grow skel-col"><div class="skel" style="height:30px;width:55%"></div><div class="skel" style="height:16px;width:38%"></div></div></div>`;
 }
-const lvlColor = (l) => (l >= 100 ? '#ffd24a' : l >= 50 ? '#ff3dcb' : l >= 30 ? '#8b5cf6' : l >= 10 ? '#3db8ff' : '#8b95c2');
+const lvlColor = (l) => (l >= 100 ? '#ff2a2a' : l >= 50 ? '#ffffff' : l >= 30 ? '#cfcfcf' : l >= 10 ? '#8d8d8d' : '#555555');
 export function headHTML(p, { level, fav }) {
   const st = statusOf(p);
   const age = accountAge(p.created);
@@ -107,9 +107,9 @@ export function overviewHTML(S) {
     <div class="card reveal"><h3>Recently played</h3><div class="stack">${recent.length ? recent.map(gameCard).join('') : '<p class="muted">No recent activity.</p>'}</div></div>
     <div class="card reveal"><h3>Most played</h3>${top.length ? barList(top.map((g) => ({ label: g.name, value: g.playtime_forever, appid: g.appid }))) : '<p class="muted">No playtime recorded.</p>'}</div>
     <div class="card reveal"><h3>Library breakdown</h3>
-      <div class="donut-wrap">${donut([{ label: 'Played', value: st.played, color: 'var(--c1)' }, { label: 'Never played', value: unplayed, color: 'var(--c3)' }], `${pct}%`, 'played')}
+      <div class="donut-wrap">${donut([{ label: 'Played', value: st.played, color: 'var(--c1)' }, { label: 'Never played', value: unplayed, color: '#ffffff' }], `${pct}%`, 'played')}
         <div class="legend"><div><i style="background:var(--c1)"></i>${fmt(st.played)} played</div>
-        <div><i style="background:var(--c3)"></i>${fmt(unplayed)} never played</div>
+        <div><i style="background:#fff"></i>${fmt(unplayed)} never played</div>
         <div class="muted small">${unplayed > 0 ? 'Pile of shame: ' + fmt(unplayed) + ' games waiting' : 'Nothing left unplayed.'}</div></div></div></div>
     <div class="card reveal"><h3>Level &amp; badges</h3>${lvlCard}</div>
     <div class="card reveal" id="vsFriends"><h3>You vs friends</h3>${skeleton(150)}</div>
@@ -308,12 +308,46 @@ export function compareHTML(A, B) {
 /* ───────── home bits ───────── */
 export const chip = (p) => `<button class="chip" data-open="${p.steamid}" type="button">${p.avatar ? `<img src="${esc(p.avatar)}" alt="" loading="lazy">` : ''}${esc(p.name)}</button>`;
 
-export function liveStrip(d) {
-  const top = d.games[0];
-  return `<div class="strip-item"><div class="lbl">Players in top games</div><div class="val" data-count="${d.total}">0</div></div>
-    <div class="strip-item"><div class="lbl">Most played right now</div><div class="val sm">${top ? esc(top.name) : '–'}</div><div class="muted small">${top ? fmt(top.players) + ' playing' : ''}</div></div>
-    <div class="strip-item"><div class="lbl">Games tracked live</div><div class="val" data-count="${d.games.length}">0</div></div>
-    <div class="strip-item"><div class="lbl">Status</div><div class="val sm"><span class="live-pill"><i></i> LIVE &middot; 60s</span></div></div>`;
+const bigImg = (appid) => `<img class="bgimg" src="https://cdn.akamai.steamstatic.com/steam/apps/${appid}/library_hero.jpg" alt="" onerror="this.onerror=null;this.src='${steamImg(appid)}'">`;
+const fmtCompact = (n) => (n == null ? '–' : n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e4 ? Math.round(n / 1e3) + 'K' : fmt(n));
+const dateShort = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+export function bestCardHTML(best) {
+  return best
+    ? `<div class="dash-card reveal in" id="bestCard" data-open="${best.steamid}"><span class="tag">Best player on Steam</span><div class="pl"><img src="${esc(best.avatar)}" alt=""><div class="figure" style="font-size:1.5rem;margin:0">${esc(best.name)}</div></div>
+        <div class="line">Level <b>${fmt(best.level)}</b>${best.games != null ? ` &middot; <b>${fmt(best.games)}</b> games` : ''}<br>#1 on the SteamTrack board</div></div>`
+    : `<div class="dash-card reveal" id="bestCard"><span class="tag">Best player on Steam</span><div class="figure">…</div><div class="line">Calculating from the global board</div></div>`;
 }
+
+export function dashboardHTML(h, best) {
+  const g = h.summary.golden, pl = h.summary.players, sl = h.summary.sale;
+  const golden = g
+    ? `<div class="dash-card golden reveal" data-game="${g.appid}" data-gname="${esc(g.name)}">${bigImg(g.appid)}<span class="tag">Best golden game</span>
+        <div class="inner"><span class="score">${g.pct}% POSITIVE</span><div class="figure">${esc(g.name)}</div>
+        <div class="line"><b>${esc(g.desc || 'Top rated')}</b> &middot; ${fmt(g.total)} reviews &middot; ${fmt(g.players)} playing now</div></div></div>`
+    : `<div class="dash-card golden reveal"><span class="tag">Best golden game</span><div class="inner"><div class="figure">–</div><div class="line">Ratings are not available right now.</div></div></div>`;
+  const players = `<div class="dash-card reveal"><span class="tag">Active players</span>
+      <div class="figure red" data-count="${pl.total}">0</div>
+      <div class="line">across ${pl.games} top games${pl.top ? `<br>Most played: <b>${esc(pl.top.name)}</b> (${fmtCompact(pl.top.players)})` : ''}</div></div>`;
+  let saleBody;
+  if (sl.active) saleBody = `<div class="figure"><span class="sale-on"><i></i>ON NOW</span></div><div class="line"><b>${esc(sl.active.name)}</b><br>Ends about ${dateShort(sl.active.ends)}${sl.maxDiscount ? ` &middot; up to -${sl.maxDiscount}%` : ''}</div>`;
+  else saleBody = `<div class="figure">${sl.next ? sl.next.days + ' DAYS' : 'NO SALE'}</div><div class="line">${sl.next ? `Next: <b>${esc(sl.next.name)}</b><br>Starts about ${dateShort(sl.next.starts)}` : 'No seasonal sale is active.'}${sl.specials ? `<br>${sl.specials} weekly deals live${sl.maxDiscount ? ` (up to -${sl.maxDiscount}%)` : ''}` : ''}</div>`;
+  const sale = `<div class="dash-card reveal"><span class="tag">Sale season</span>${saleBody}</div>`;
+  const bestCard = bestCardHTML(best);
+  return golden + players + sale + bestCard;
+}
+
+export const pickRow = (g, i) => `<button class="pick" data-game="${g.appid}" data-gname="${esc(g.name)}" type="button"><span class="no">${i + 1}</span>${gameImg(g.appid)}
+  <div><b>${esc(g.name)}</b><div class="meta2"><span><span class="pl-n">${fmt(g.players)}</span> playing</span>${g.sellerRank ? `<span class="seller">Best seller #${g.sellerRank}</span>` : ''}</div></div></button>`;
+export const categoriesHTML = (cats) => cats.map((c) => `<div class="cat-card reveal"><h4>${esc(c.name)}<small>TOP 3</small></h4>${c.games.map(pickRow).join('')}</div>`).join('');
 export const trendCards = (games) => games.map((g, i) => `<button class="tcard reveal" data-game="${g.appid}" data-gname="${esc(g.name)}" type="button">
   <span class="tc-rank">#${i + 1}</span>${gameImg(g.appid)}<div class="tc-body"><b>${esc(g.name)}</b><span class="players">${fmt(g.players)} playing</span></div></button>`).join('');
+
+/* ───────── global leaderboard ───────── */
+export function globalBoard(d, m) {
+  if (!d.players.length) return emptyBox('Nobody on the board yet', 'Search a public profile or add a player above to start the ranking.');
+  const max = d.players[0].value || 1;
+  const rows = d.players.map((p) => lbRow({ ...p, rank: p.rank }, m, max)).join('');
+  return `<div id="gPodium">${podium(d.players.slice(0, 3).map((p) => ({ ...p })), m)}</div><div class="lb">${rows}</div>
+    <p class="muted small" style="margin-top:12px">${d.members} players tracked &middot; top ${d.players.length} shown &middot; updated ${new Date(d.updated).toLocaleTimeString()}</p>`;
+}

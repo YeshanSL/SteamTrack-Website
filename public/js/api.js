@@ -59,3 +59,5 @@ export const playerCount = (appid, o) => get('player-count', { appid }, { ttl: 6
 export const trending = (o) => get('trending', {}, { ttl: 60000, ...o });
 export const wishlist = (steamid, o) => get('wishlist', { steamid }, { ttl: 1800000, ...o });
 export const gameBoards = (appid, lbid, o) => get('game-leaderboards', lbid ? { appid, lbid } : { appid }, { ttl: 600000, ...o });
+export const home = (o) => get('home', {}, { ttl: 60000, ...o });
+export const leaderboard = (metric, o) => get('leaderboard', { metric }, { ttl: 120000, ...o });

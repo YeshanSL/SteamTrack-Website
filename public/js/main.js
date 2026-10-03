@@ -23,41 +23,43 @@ function resetState() {
 }
 resetState();
 
-/* ───────── preferences ───────── */
-function applyPrefs() {
-  const root = document.documentElement;
-  root.dataset.theme = store.get('theme', 'dark');
-  const acc = store.get('accent', 'cyan');
-  root.dataset.accent = acc;
-  $$('.accent-dot').forEach((b) => b.classList.toggle('on', b.dataset.accent === acc));
-}
-
 /* ───────── views ───────── */
+const VIEWS = ['home', 'stats', 'leaderboard', 'compare'];
 function showView(name) {
-  ['home', 'profile', 'compare'].forEach((v) => { $(`#view-${v}`).hidden = v !== name; });
-  $$('[data-nav]').forEach((b) => b.classList.toggle('active', b.dataset.nav === name));
-  if (name !== 'profile') clearInterval(S.poll);
+  VIEWS.forEach((v) => { $(`#view-${v}`).hidden = v !== name; });
+  $$('.nav-btn[data-nav]').forEach((b) => b.classList.toggle('active', b.dataset.nav === name));
+  if (name !== 'stats') clearInterval(S.poll);
+  if (name === 'stats') $('#statsLanding').hidden = !!S.raw;
   window.scrollTo({ top: 0 });
 }
-function goHome() {
-  token++;
-  history.pushState({}, '', location.pathname);
-  document.title = 'SteamTrack | Steam Stats, Leaderboards & Friend Rankings';
-  showView('home');
-  renderChips();
-  loadHome();
+function goTo(name) {
+  if (name === 'home') { token++; history.pushState({}, '', location.pathname); document.title = 'SteamTrack | Steam Stats, Leaderboards & Rankings'; showView('home'); loadHome(); return; }
+  if (name === 'stats') { history.pushState({}, '', S.player ? `?user=${encodeURIComponent(vanityOf(S.player) || S.id)}` : location.pathname); showView('stats'); renderChips(); if (!S.raw) $('#miniInput').focus(); return; }
+  history.pushState({}, '', `?view=${name}`);
+  showView(name);
+  if (name === 'leaderboard') loadGlobalBoard();
 }
+const goHome = () => goTo('home');
 
 /* ───────── home ───────── */
 async function loadHome(force) {
   try {
-    const d = await api.trending({ force });
-    $('#liveStrip').innerHTML = ui.liveStrip(d);
-    $$('#liveStrip [data-count]').forEach((n) => countUp(n, +n.dataset.count));
-    $('#trendGrid').innerHTML = ui.trendCards(d.games);
+    const d = await api.home({ force });
+    S.homeData = d;
+    $('#dash').innerHTML = ui.dashboardHTML(d, S.best || null);
+    $$('#dash [data-count]').forEach((n) => countUp(n, +n.dataset.count));
+    const hn = $('#heroNum'); if (hn) countUp(hn, d.summary.players.total);
+    $('#catGrid').innerHTML = ui.categoriesHTML(d.categories);
+    $('#trendGrid').innerHTML = ui.trendCards(d.trending);
+    if (!S.best) api.leaderboard('level').then((b) => {
+      S.best = b.players[0] || null;
+      const c = $('#bestCard');
+      if (!c) return;
+      if (S.best) c.outerHTML = ui.bestCardHTML(S.best); else c.querySelector('.line').textContent = 'No ranking available yet.';
+    }).catch(() => { const c = $('#bestCard'); if (c) c.querySelector('.line').textContent = 'No ranking available yet.'; });
   } catch (e) {
-    $('#liveStrip').innerHTML = '';
-    $('#trendGrid').innerHTML = `<div style="grid-column:1/-1">${ui.errorBox(e, 'trending')}</div>`;
+    $('#dash').innerHTML = `<div style="grid-column:1/-1">${ui.errorBox(e, 'trending')}</div>`;
+    $('#catGrid').innerHTML = ''; $('#trendGrid').innerHTML = '';
   }
 }
 function renderChips() {
@@ -80,12 +82,14 @@ const isFav = () => store.get('favs', []).some((f) => f.steamid === S.id);
 
 async function openProfile(raw, { push = true } = {}) {
   const parsed = parseInput(raw);
-  if (!parsed) { showView('home'); setHeroError('Enter a Steam username, a 17-digit SteamID64 or a steamcommunity.com profile URL.'); return; }
+  if (!parsed) { if (!$('#view-stats').hidden) { const e = $('#statsError'); e.textContent = 'Enter a Steam username, a 17-digit SteamID64 or a steamcommunity.com profile URL.'; e.hidden = false; return; } showView('home'); setHeroError('Enter a Steam username, a 17-digit SteamID64 or a steamcommunity.com profile URL.'); return; }
   setHeroError('');
+  $('#statsError').hidden = true;
   const my = ++token;
   resetState();
   S.raw = raw;
-  showView('profile');
+  showView('stats');
+  $('#statsLanding').hidden = true;
   $$('.panel').forEach((p) => { p.innerHTML = ''; });
   $('#profileHead').innerHTML = ui.headSkeleton();
   $('#tab-overview').innerHTML = ui.overviewSkeleton();
@@ -371,32 +375,53 @@ async function shareCard() {
   const cv = document.createElement('canvas'); cv.width = 1200; cv.height = 630;
   const x = cv.getContext('2d');
   const css = getComputedStyle(document.documentElement);
-  const c1 = css.getPropertyValue('--c1').trim() || '#00e5ff';
-  try { await document.fonts.load('900 64px Orbitron'); await document.fonts.load('700 30px Rajdhani'); } catch { /* fonts optional */ }
-  const bg = x.createLinearGradient(0, 0, 1200, 630); bg.addColorStop(0, '#04060d'); bg.addColorStop(1, '#141040');
+  const c1 = css.getPropertyValue('--c1').trim() || '#ff2a2a';
+  try { await document.fonts.load('700 64px "Chakra Petch"'); await document.fonts.load('700 30px Barlow'); } catch { /* fonts optional */ }
+  const bg = x.createLinearGradient(0, 0, 1200, 630); bg.addColorStop(0, '#050505'); bg.addColorStop(1, '#1a0000');
   x.fillStyle = bg; x.fillRect(0, 0, 1200, 630);
-  x.strokeStyle = 'rgba(0,229,255,.12)'; x.lineWidth = 1;
+  x.strokeStyle = 'rgba(255,255,255,.06)'; x.lineWidth = 1;
   for (let i = 0; i < 1200; i += 40) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 630); x.stroke(); }
   for (let i = 0; i < 630; i += 40) { x.beginPath(); x.moveTo(0, i); x.lineTo(1200, i); x.stroke(); }
-  const lg = x.createLinearGradient(60, 0, 460, 0); lg.addColorStop(0, c1); lg.addColorStop(.5, '#8b5cf6'); lg.addColorStop(1, '#ff3dcb');
-  x.fillStyle = lg; x.font = '900 44px Orbitron, sans-serif'; x.fillText('STEAMTRACK', 60, 90);
+  x.fillStyle = '#fff'; x.font = '700 44px "Chakra Petch", sans-serif'; x.fillText('STEAMTRACK', 60, 90);
   const img = await new Promise((r) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => r(i); i.onerror = () => r(null); i.src = p.avatar; });
   x.save(); x.beginPath(); x.arc(170, 270, 90, 0, 6.283); x.clip();
-  if (img) x.drawImage(img, 80, 180, 180, 180); else { x.fillStyle = '#1b2250'; x.fillRect(80, 180, 180, 180); }
+  if (img) x.drawImage(img, 80, 180, 180, 180); else { x.fillStyle = '#222'; x.fillRect(80, 180, 180, 180); }
   x.restore();
   x.lineWidth = 6; x.strokeStyle = c1; x.beginPath(); x.arc(170, 270, 93, 0, 6.283); x.stroke();
-  x.fillStyle = '#fff'; x.font = '700 56px Rajdhani, sans-serif'; x.fillText(p.name.slice(0, 22), 300, 255);
-  x.fillStyle = '#8b95c2'; x.font = '600 28px Rajdhani, sans-serif';
+  x.fillStyle = '#fff'; x.font = '700 56px Barlow, sans-serif'; x.fillText(p.name.slice(0, 22), 300, 255);
+  x.fillStyle = '#8d8d8d'; x.font = '600 28px Barlow, sans-serif';
   x.fillText(`${S.level != null ? 'Level ' + S.level + '  ·  ' : ''}${statusOf(p).label}`, 300, 300);
   const stats = [['GAMES', S.stats ? fmt(S.stats.count) : '–'], ['HOURS PLAYED', S.stats ? fmt(S.stats.total / 60) : '–'], ['LAST 2 WEEKS', S.stats ? hrs(S.stats.twoWeek) : '–']];
   stats.forEach(([l, v], i) => {
     const bx = 60 + i * 370;
-    x.fillStyle = 'rgba(255,255,255,.06)'; x.strokeStyle = 'rgba(130,150,255,.35)'; x.lineWidth = 2;
+    x.fillStyle = 'rgba(255,255,255,.05)'; x.strokeStyle = 'rgba(255,42,42,.6)'; x.lineWidth = 2;
     x.beginPath(); x.roundRect(bx, 430, 340, 140, 18); x.fill(); x.stroke();
-    x.fillStyle = '#8b95c2'; x.font = '600 22px Rajdhani, sans-serif'; x.fillText(l, bx + 28, 475);
-    x.fillStyle = c1; x.font = '900 52px Orbitron, sans-serif'; x.fillText(v, bx + 28, 538);
+    x.fillStyle = '#8d8d8d'; x.font = '600 22px Barlow, sans-serif'; x.fillText(l, bx + 28, 475);
+    x.fillStyle = c1; x.font = '700 52px "Chakra Petch", sans-serif'; x.fillText(v, bx + 28, 538);
   });
   cv.toBlob((b) => { if (b) { downloadBlob(b, `steamtrack-${p.name}.png`); toast('Share card saved', 'ok'); } else toast('Could not create image', 'error'); }, 'image/png');
+}
+
+/* ───────── global leaderboard ───────── */
+const GM = { level: { label: 'Steam level', fmt }, minutes: { label: 'Total playtime', fmt: hrs }, games: { label: 'Games owned', fmt }, recent: { label: 'Last 2 weeks', fmt: hrs } };
+async function loadGlobalBoard(force) {
+  const metric = $('#gMetric').value, body = $('#gbBody');
+  body.innerHTML = `<div class="skel-col">${ui.skeleton(120)}${ui.skeleton(64)}${ui.skeleton(64)}${ui.skeleton(64)}</div>`;
+  try { const d = await api.leaderboard(metric, { force }); if ($('#gMetric').value === metric) body.innerHTML = ui.globalBoard(d, GM[metric]); }
+  catch (e) { body.innerHTML = ui.errorBox(e, 'gboard'); }
+}
+async function addToBoard() {
+  const p = parseInput($('#addInput').value);
+  if (!p) { toast('Enter a valid username, SteamID64 or profile URL', 'error'); return; }
+  try {
+    const id = p.type === 'id' ? p.value : await api.resolve(p.value);
+    const { player } = await api.summary(id);
+    if (player.visibility !== 3) { toast(`${player.name} has a private profile, so it cannot be ranked`, 'error'); return; }
+    $('#addInput').value = '';
+    toast(`${player.name} added to the board`, 'ok');
+    api.get('leaderboard', { metric: $('#gMetric').value }, { force: true }).catch(() => {});
+    loadGlobalBoard(true);
+  } catch (e) { toast(e.message || 'Could not add that player', 'error'); }
 }
 
 /* ───────── compare ───────── */
@@ -428,10 +453,8 @@ function bindGlobal() {
     h.innerHTML = p ? `Detected: <b>${p.label}</b>` : 'Not a valid username, SteamID64 or profile URL yet';
     setHeroError('');
   }, 150));
-  $('#themeBtn').addEventListener('click', () => {
-    const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-    store.set('theme', t); applyPrefs();
-  });
+  $('#gMetric').addEventListener('change', () => loadGlobalBoard());
+  $('#addForm').addEventListener('submit', (e) => { e.preventDefault(); addToBoard(); });
   $('#navFav').addEventListener('click', openFavs);
   $('#modalClose').addEventListener('click', closeModal);
   $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
@@ -439,16 +462,14 @@ function bindGlobal() {
   addEventListener('popstate', routeFromUrl);
 
   document.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-open],[data-example],[data-game],[data-act],[data-tab],[data-nav],[data-accent],[data-fav-remove],[data-lb],[data-retry]');
+    const t = e.target.closest('[data-open],[data-example],[data-game],[data-act],[data-tab],[data-nav],[data-fav-remove],[data-lb],[data-retry]');
     if (!t) return;
     const d = t.dataset;
     if (d.favRemove) {
       store.set('favs', store.get('favs', []).filter((f) => f.steamid !== d.favRemove));
       e.stopPropagation(); openFavs(); renderChips(); if (S.player) renderHead(); return;
     }
-    if (d.accent) { store.set('accent', d.accent); applyPrefs(); return; }
-    if (d.nav === 'home') { e.preventDefault(); goHome(); return; }
-    if (d.nav === 'compare') { showView('compare'); return; }
+    if (d.nav) { e.preventDefault(); goTo(d.nav); return; }
     if (d.tab) { switchTab(d.tab); return; }
     if (d.example) { $('#heroInput').value = d.example; openProfile(d.example); return; }
     if (d.lb) { loadBoardEntries(d.app, d.lb); return; }
@@ -472,6 +493,7 @@ function retry(what) {
   else if (what === 'online') loadOnline(true);
   else if (what === 'ach') { S.achPromise = null; S.inited.achievements = false; switchTab('achievements'); }
   else if (what === 'compare') runCompare();
+  else if (what === 'gboard') loadGlobalBoard(true);
 }
 function action(a) {
   if (a === 'fav') toggleFav();
@@ -488,8 +510,12 @@ function action(a) {
 }
 
 function routeFromUrl() {
-  const u = new URLSearchParams(location.search).get('user');
-  if (u) openProfile(u, { push: false }); else { showView('home'); loadHome(); }
+  const q = new URLSearchParams(location.search), u = q.get('user'), v = q.get('view');
+  if (u) openProfile(u, { push: false });
+  else if (v === 'leaderboard') { showView('leaderboard'); loadGlobalBoard(); }
+  else if (v === 'compare') showView('compare');
+  else if (v === 'stats') { showView('stats'); renderChips(); }
+  else { showView('home'); loadHome(); }
 }
 
 /* Scroll-reveal for dynamically added nodes */
@@ -502,13 +528,12 @@ function setupReveal() {
 }
 
 async function init() {
-  applyPrefs();
   startBackground();
   setupReveal();
   bindGlobal();
   renderChips();
   await runLoader();
   routeFromUrl();
-  setInterval(() => { if (!$('#view-home').hidden && !document.hidden) loadHome(true); }, 60000);
+  setInterval(() => { if (!$('#view-home').hidden && !document.hidden) loadHome(true); }, 120000);
 }
 init();
